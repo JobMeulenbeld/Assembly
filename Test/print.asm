@@ -1,13 +1,16 @@
 section .data
     txt1 db "Wrong value, please enter a new one:",10,0
-
+    txt2 db "Value above 93, please enter a new one:",10,0
+;------------------------------------------------------------------------------------------------------------------------------
 section .bss
     digitSpace resb 100
     digitSpacePos resb 8
 
-    input resb 2
+    input resb 3
     in_val resd 1
+;------------------------------------------------------------------------------------------------------------------------------
 section .text
+;------------------------------------------------------------------------------------------------------------------------------
 
 _printRAX:
     ;Because we start backwards, the first thing we do is store the pointer to our variable in the rcx register
@@ -57,73 +60,76 @@ _printRAXLoop2:
     ret ;Return to the program
 
 _get_val:
-    mov rax, 0
+
+    ;Setup the syscall for reading
+    mov rax, 0  
     mov rdi, 0
     mov rsi, input
-    mov rdx, 2
+    mov rdx, 3
     syscall
 
-    mov rbx, input
-    mov rcx, [input]
-    sub rcx, 48
+    mov rbx, input  ;Get the input into the RBX register
 
-    push rcx
-    mov rax, rcx
-    call _printRAX
-    pop rcx
+    mov cl, [rbx]   ;Mov the first character into the CL register
+    sub cl, 48      ;Subtract 48 to get the correct value
+    
+    cmp cl, 0       ;Compare to see if the first value is lower than 0
+    jl _wrong_val   ;If not go into the wrong value segment
 
-    cmp rcx, 0
-    jl _wrong_val
+    cmp cl, 9       ;Compare to see if the first value is higher than 9
+    jg _wrong_val   ;If not go into the wrong value segment
 
-    cmp rcx, 9
-    jg _wrong_val
+    mov rax, 10     ;Setup the RAX to 10 for multiplication of the first digit
+    mul cl          ;Multiply the RAX with the CL register (our value)
+    push rax        ;Push the value to the stack
 
-    mov rax, 10
-    mul rcx
+    inc rbx         ;Increment RBX to get the next character
 
-    inc rbx
-    mov [input], rbx
+    mov cl, [rbx]   ;Mov the second character to the CL register
+    sub cl, 48      ;Subtract 48 to get the correct value
+    
+    cmp cl, 0       ;Compare to see if the second value is lower than 0
+    jl _wrong_val   ;If not go into the wrong value segment
 
-    mov rdx, [input]
-    sub rdx, 48
+    cmp cl, 9       ;Compare to see if the second value is higher than 9
+    jg _wrong_val   ;If not go into the wrong value segment
 
-    mov rax, rdx
-    call _print
+    pop rbx         ;Get the first value back from the stack and put it in the RBX register
+    add bl, cl      ;Add the second value to the first value
 
-    cmp rdx, 0
-    jle _wrong_val
+    cmp rbx, 93     ;Compare the total value to see if it is not higher than 93
+    jg _too_big     ;If it is higher, jump to the too big segment
 
-    cmp rdx, 9
-    jg _wrong_val
-
-    add rcx, rdx
-
-    mov [in_val], rcx
-    mov rax, [in_val]
-    call _printRAX
+    mov [in_val], rbx   ;Store the complete value into the variable: in_val
 
     ret
 
 _wrong_val:
-    mov rax, txt1
+    mov rax, txt1   ;Print out the wrong value text
     call _print
-    jmp _get_val
+    jmp _get_val    ;Go back into the get val loop
+
+_too_big:
+    mov rax, txt2   ;Print out that the number is too big
+    call _print 
+    jmp _get_val    ;Go back into the get val loop
 
 ;Input: rax as pointer to string
 ;Output: print string at rax
 _print:
-    push rax
-    mov rbx, 0
+    push rax    ;Push the message to the stack
+    mov rbx, 0  ;Set the RBX register to 0
 _printLoop:
-    inc rax
-    inc rbx
-    mov cl, [rax]
-    cmp cl, 0
-    jne _printLoop
+    inc rax     ;Go to the next char in the RAX register
+    inc rbx     ;Increment RBX
+    mov cl, [rax]   ;Get the char out of the RAX into the CL register
+    cmp cl, 0   ;See if it is the end of the message with the null character
+    jne _printLoop ;If not then there is more to print, so we go back into the print loop
 
-    mov rax, 1
+    ;Setup the syscall for writing
+    mov rax, 1  
     mov rdi, 1
-    pop rsi
-    mov rdx, rbx
+    pop rsi     ;Get the message out of the stack
+    mov rdx, rbx    ;Use the RBX register to count the amount of bytes to print
     syscall
     ret
